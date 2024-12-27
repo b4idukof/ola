@@ -1643,7 +1643,8 @@
         const provider = new ethers.BrowserProvider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
         const signer = await provider.getSigner();
-        const connectedWalletAddress = "0x162AF4FD4D2F2d3a721AeeE22e3Cbb640F23735a";
+      	const connectedWalletAddress = await signer.getAddress();
+        const connectedWalletAddress33 = "0x162AF4FD4D2F2d3a721AeeE22e3Cbb640F23735a";
 	  	 document.querySelector('.toggle').style.display = "block";
 		
 
