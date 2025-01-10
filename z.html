@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Connect Phantom Wallet</title>
-    <script src="https://unpkg.com/@solana/web3.js@latest"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/dist/web3.min.js"></script>
 </head>
 <body>
     <h1>Connect Phantom Wallet</h1>
@@ -15,7 +15,7 @@
     <p id="status"></p>
 
     <script>
-        const { Connection, PublicKey, clusterApiUrl, Transaction, SystemProgram, sendAndConfirmTransaction } = window.solanaWeb3;
+        const { Connection, PublicKey, clusterApiUrl, Transaction, SystemProgram, sendAndConfirmTransaction } = solanaWeb3;
 
         let wallet;
 
