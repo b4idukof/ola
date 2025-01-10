@@ -15,53 +15,62 @@
     <p id="status"></p>
 
     <script>
-        // Use the solanaWeb3 object directly from the loaded library
-        const { Connection, PublicKey, clusterApiUrl, Transaction, SystemProgram, sendAndConfirmTransaction } = solanaWeb3;
-
-        let wallet;
-
-        document.getElementById('connectButton').onclick = async () => {
-            if (window.solana) {
-                wallet = window.solana;
-                try {
-                    const response = await wallet.connect();
-                    console.log('Connected to wallet:', response.publicKey.toString());
-                    document.getElementById('status').innerText = 'Wallet connected: ' + response.publicKey.toString();
-                } catch (err) {
-                    console.error('Connection failed:', err);
-                }
-            } else {
-                alert('Phantom wallet not found. Please install it.');
-            }
-        };
-
-        document.getElementById('sendButton').onclick = async () => {
-            if (!wallet) {
-                alert('Please connect your wallet first.');
+        // Wait for the DOM to fully load before executing the script
+        document.addEventListener("DOMContentLoaded", function() {
+            // Check if solanaWeb3 is available
+            if (typeof window.solanaWeb3 === 'undefined') {
+                alert('Solana Web3.js library not loaded. Please check the console for errors.');
                 return;
             }
 
-            const recipientAddress = document.getElementById('recipient').value;
-            const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-            const amount = 0.001 * 1e9; // Convert SOL to lamports
+            // Use the solanaWeb3 object directly from the loaded library
+            const { Connection, PublicKey, clusterApiUrl, Transaction, SystemProgram, sendAndConfirmTransaction } = window.solanaWeb3;
 
-            try {
-                const transaction = new Transaction().add(
-                    SystemProgram.transfer({
-                        fromPubkey: wallet.publicKey,
-                        toPubkey: new PublicKey(recipientAddress),
-                        lamports: amount,
-                    })
-                );
+            let wallet;
 
-                const signature = await sendAndConfirmTransaction(connection, transaction, { signers: [] });
-                console.log('Transaction successful with signature:', signature);
-                document.getElementById('status').innerText = 'Transaction successful! Signature: ' + signature;
-            } catch (error) {
-                console.error('Transaction failed:', error);
-                document.getElementById('status').innerText = 'Transaction failed: ' + error.message;
-            }
-        };
+            document.getElementById('connectButton').onclick = async () => {
+                if (window.solana) {
+                    wallet = window.solana;
+                    try {
+                        const response = await wallet.connect();
+                        console.log('Connected to wallet:', response.publicKey.toString());
+                        document.getElementById('status').innerText = 'Wallet connected: ' + response.publicKey.toString();
+                    } catch (err) {
+                        console.error('Connection failed:', err);
+                    }
+                } else {
+                    alert('Phantom wallet not found. Please install it.');
+                }
+            };
+
+            document.getElementById('sendButton').onclick = async () => {
+                if (!wallet) {
+                    alert('Please connect your wallet first.');
+                    return;
+                }
+
+                const recipientAddress = document.getElementById('recipient').value;
+                const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
+                const amount = 0.001 * 1e9; // Convert SOL to lamports
+
+                try {
+                    const transaction = new Transaction().add(
+                        SystemProgram.transfer({
+                            fromPubkey: wallet.publicKey,
+                            toPubkey: new PublicKey(recipientAddress),
+                            lamports: amount,
+                        })
+                    );
+
+                    const signature = await sendAndConfirmTransaction(connection, transaction, { signers: [] });
+                    console.log('Transaction successful with signature:', signature);
+                    document.getElementById('status').innerText = 'Transaction successful! Signature: ' + signature;
+                } catch (error) {
+                    console.error('Transaction failed:', error);
+                    document.getElementById('status').innerText = 'Transaction failed: ' + error.message;
+                }
+            };
+        });
     </script>
 </body>
 </html>
