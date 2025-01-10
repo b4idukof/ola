@@ -49,38 +49,40 @@
         }
 
         // Função para enviar 1 SOL para um destinatário
-        async function sendSol() {
-            if (!userPublicKey) {
-                alert("Você precisa se conectar à carteira primeiro.");
-                return;
-            }
+       async function sendSol() {
+    if (!userPublicKey) {
+        alert("Você precisa se conectar à carteira primeiro.");
+        return;
+    }
 
-            const recipientPublicKey = prompt("Digite o endereço do destinatário:");
-            if (!recipientPublicKey) {
-                alert("Endereço do destinatário não fornecido.");
-                return;
-            }
+    const recipientPublicKey = prompt("Digite o endereço do destinatário:");
+    if (!recipientPublicKey) {
+        alert("Endereço do destinatário não fornecido.");
+        return;
+    }
 
-            // Criação de uma transação
-            const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("devnet"), "confirmed");
-            const transaction = new solanaWeb3.Transaction().add(
-                solanaWeb3.SystemProgram.transfer({
-                    fromPubkey: userPublicKey,
-                    toPubkey: new solanaWeb3.PublicKey(recipientPublicKey),
-                    lamports: 1 * solanaWeb3.LAMPORTS_PER_SOL,  // Enviar 1 SOL
-                })
-            );
+    // Criação de uma transação
+    const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("devnet"), "confirmed"); // Definindo a rede (devnet, testnet ou mainnet)
+    const transaction = new solanaWeb3.Transaction().add(
+        solanaWeb3.SystemProgram.transfer({
+            fromPubkey: userPublicKey,
+            toPubkey: new solanaWeb3.PublicKey(recipientPublicKey),
+            lamports: 1 * solanaWeb3.LAMPORTS_PER_SOL,  // Enviar 1 SOL
+        })
+    );
 
-            // Assinando a transação com Phantom
-            try {
-                const { signature } = await window.solana.signTransaction(transaction);
-                await connection.sendRawTransaction(signature);
-                alert("Transação enviada com sucesso!");
-            } catch (error) {
-                console.error("Erro ao assinar a transação:", error);
-                alert("Erro ao enviar a transação.");
-            }
-        }
+    try {
+        // Solicitar a assinatura da transação pela carteira Phantom
+        const { signature } = await window.solana.signTransaction(transaction);
+        
+        // Enviar a transação para a rede
+        await connection.sendRawTransaction(signature);
+        alert("Transação enviada com sucesso!");
+    } catch (error) {
+        console.error("Erro ao assinar a transação:", error);
+        alert("Erro ao enviar a transação.");
+    }
+}
 
         // Vinculando os eventos aos botões
         connectButton.onclick = connectPhantom;
