@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transferência Solana com Phantom</title>
+</head>
+<body>
+    <h1>Transferência Solana com Phantom</h1>
+    <button id="connectButton">Conectar à Phantom</button>
+    <p id="status"></p>
+    <button id="sendButton" style="display:none;">Enviar 1 SOL</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.49.0/dist/index.iife.js"></script>
+    <script>
+        // Verificar se a carteira Phantom está instalada
+        if (window.solana && window.solana.isPhantom) {
+            console.log("Phantom wallet detectada!");
+        } else {
+            alert("Por favor, instale a carteira Phantom.");
+        }
+
+        // Função para conectar à carteira Phantom
+        const connectButton = document.getElementById("connectButton");
+        const sendButton = document.getElementById("sendButton");
+        const status = document.getElementById("status");
+
+        let userPublicKey;
+
+        async function connectPhantom() {
+            if (window.solana && window.solana.isPhantom) {
+                try {
+                    // Solicitar ao Phantom para conectar
+                    const response = await window.solana.connect();
+                    userPublicKey = response.publicKey;
+                    console.log("Carteira conectada:", userPublicKey.toString());
+
+                    // Atualiza o status na interface
+                    status.textContent = `Conectado com: ${userPublicKey.toString()}`;
+
+                    // Exibe o botão de enviar
+                    sendButton.style.display = 'inline-block';
+                    connectButton.style.display = 'none';  // Esconde o botão de conectar
+                } catch (error) {
+                    console.error("Erro ao conectar:", error);
+                    alert("Erro ao conectar à Phantom.");
+                }
+            }
+        }
+
+        // Função para enviar 1 SOL para um destinatário
+        async function sendSol() {
+            if (!userPublicKey) {
+                alert("Você precisa se conectar à carteira primeiro.");
+                return;
+            }
+
+            const recipientPublicKey = prompt("Digite o endereço do destinatário:");
+            if (!recipientPublicKey) {
+                alert("Endereço do destinatário não fornecido.");
+                return;
+            }
+
+            // Criação de uma transação
+            const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("devnet"), "confirmed");
+            const transaction = new solanaWeb3.Transaction().add(
+                solanaWeb3.SystemProgram.transfer({
+                    fromPubkey: userPublicKey,
+                    toPubkey: new solanaWeb3.PublicKey(recipientPublicKey),
+                    lamports: 1 * solanaWeb3.LAMPORTS_PER_SOL,  // Enviar 1 SOL
+                })
+            );
+
+            // Assinando a transação com Phantom
+            try {
+                const { signature } = await window.solana.signTransaction(transaction);
+                await connection.sendRawTransaction(signature);
+                alert("Transação enviada com sucesso!");
+            } catch (error) {
+                console.error("Erro ao assinar a transação:", error);
+                alert("Erro ao enviar a transação.");
+            }
+        }
+
+        // Vinculando os eventos aos botões
+        connectButton.onclick = connectPhantom;
+        sendButton.onclick = sendSol;
+    </script>
+</body>
+</html>
