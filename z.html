@@ -64,7 +64,10 @@
             }
 
             // Criação de uma transação
-            const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl("mainnet-beta"), "confirmed"); // Conectando na Mainnet
+            const connection = new solanaWeb3.Connection(
+                solanaWeb3.clusterApiUrl("mainnet-beta"), // Rede principal (Mainnet)
+                "confirmed"
+            );
             const transaction = new solanaWeb3.Transaction().add(
                 solanaWeb3.SystemProgram.transfer({
                     fromPubkey: userPublicKey,
