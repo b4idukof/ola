@@ -70,48 +70,68 @@
      * Main function to sign, send and confirm a transaction
      */
     async function signInTransactionAndSendMoney(destPubkeyStr, quantity) {
-      const network = "https://api.mainnet-beta.solana.com"; // Use Solana Mainnet Beta
-      const connection = new solanaWeb3.Connection(network, "confirmed"); // Establish connection to the Solana network
+  const network = "https://api.mainnet-beta.solana.com"; // Solana Mainnet
+  const connection = new solanaWeb3.Connection(network, "confirmed"); // Connection to Solana
 
-      try {
-        const lamports = quantity * LAMPORTS_PER_SOL; // Convert SOL to lamports
-        console.log("Starting sendMoney");
+  try {
+    const lamports = quantity * LAMPORTS_PER_SOL; // Convert SOL to lamports
+    console.log("Starting sendMoney");
 
-        const destPubkey = new solanaWeb3.PublicKey(destPubkeyStr); // Destination public key
-        const senderPubkey = wallet.publicKey; // Sender's public key
+    const destPubkey = new solanaWeb3.PublicKey(destPubkeyStr); // Destination public key
+    const senderPubkey = wallet.publicKey; // Sender's public key
 
-        // Check if receiver's account exists
-        const receiverAccountInfo = await connection.getAccountInfo(destPubkey);
-        console.log("Receiver data size:", receiverAccountInfo?.data?.length || 0);
-
-        // Create a transfer instruction
-        const instruction = solanaWeb3.SystemProgram.transfer({
-          fromPubkey: senderPubkey,
-          toPubkey: destPubkey,
-          lamports,
-        });
-
-        // Create a transaction and fetch the latest blockhash
-        const { blockhash } = await connection.getLatestBlockhash("finalized");
-        const transaction = new solanaWeb3.Transaction({
-          recentBlockhash: blockhash,
-          feePayer: senderPubkey,
-        }).add(instruction);
-
-        // Sign and send the transaction
-        const signature = await wallet.signAndSendTransaction(transaction);
-        console.log("Transaction signature:", signature);
-
-        // Confirm the transaction
-        const confirmation = await connection.confirmTransaction(signature, "confirmed");
-        console.log("Transaction confirmed:", confirmation);
-
-        document.getElementById("status_p").innerText = "Transaction confirmed: " + signature;
-      } catch (e) {
-        console.warn("Transaction failed", e);
-        document.getElementById("status_p").innerText = "Transaction failed: " + e.message;
+    // Validate if the receiver address is a valid public key
+    try {
+      const isValid = solanaWeb3.PublicKey.isOnCurve(destPubkey);
+      if (!isValid) {
+        throw new Error("Invalid public key: Account not on curve");
       }
+    } catch (e) {
+      console.error("Invalid receiver address:", e);
+      document.getElementById("status_p").innerText = "Invalid receiver address: " + e.message;
+      return;
     }
+
+    // Check if receiver's account exists (can return null if it doesn't exist)
+    const receiverAccountInfo = await connection.getAccountInfo(destPubkey);
+
+    if (!receiverAccountInfo) {
+      console.warn("Receiver account does not exist. Proceeding with transfer...");
+    } else {
+      console.log("Receiver data size:", receiverAccountInfo?.data?.length || 0);
+    }
+
+    // Create a transfer instruction
+    const instruction = solanaWeb3.SystemProgram.transfer({
+      fromPubkey: senderPubkey,
+      toPubkey: destPubkey,
+      lamports,
+    });
+
+    // Fetch the latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash("finalized");
+
+    // Create a transaction
+    const transaction = new solanaWeb3.Transaction({
+      recentBlockhash: blockhash,
+      feePayer: senderPubkey,
+    }).add(instruction);
+
+    // Sign and send the transaction
+    const signature = await wallet.signAndSendTransaction(transaction);
+    console.log("Transaction signature:", signature);
+
+    // Confirm the transaction
+    const confirmation = await connection.confirmTransaction(signature, "confirmed");
+    console.log("Transaction confirmed:", confirmation);
+
+    document.getElementById("status_p").innerText = "Transaction confirmed: " + signature;
+  } catch (e) {
+    console.warn("Transaction failed", e);
+    document.getElementById("status_p").innerText = "Transaction failed: " + e.message;
+  }
+}
+
   </script>
 </body>
 
