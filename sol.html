@@ -1,95 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Solana Transfer</title>
+  <title>Solana Wallet Transfer</title>
   <script src="https://unpkg.com/@solana/web3.js@1.33.0/lib/index.iife.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      font-size: 16px;
+      background-color: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #4f46e5;
+    }
+    input {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      width: 300px;
+    }
+  </style>
 </head>
-
 <body>
-  <div>
-    <h1>Transfer SOL</h1>
-    <button id="connect-button" onclick="connectWallet()">Connect Wallet</button>
-    <div id="wallet-info" style="display:none;">
-      <p><strong>Wallet:</strong> <span id="wallet-address"></span></p>
-      <input id="receiver" type="text" placeholder="Recipient Address" />
-      <input id="amount" type="number" placeholder="Amount (SOL)" />
-      <button onclick="transferSOL()">Send SOL</button>
-    </div>
+  <h1>Solana Wallet Transfer</h1>
+  <button id="connect-wallet" onclick="connectWallet()">Connect Wallet</button>
+  <p id="wallet-address"></p>
+  <div id="transfer-form" style="display: none;">
+    <input id="recipient" type="text" placeholder="Recipient Address (SOL)" />
+    <input id="amount" type="number" placeholder="Amount (SOL)" />
+    <button onclick="transferSol()">Transfer SOL</button>
     <p id="status"></p>
   </div>
-
   <script>
-    let wallet = null;
-    const LAMPORTS_PER_SOL = solanaWeb3.LAMPORTS_PER_SOL;
+    let wallet = null; // Armazena a carteira conectada
 
+    /**
+     * Função para conectar à carteira Solana (Phantom)
+     */
     async function connectWallet() {
+      if (!window.solana) {
+        alert("Phantom Wallet não detectada! Instale a extensão no navegador.");
+        return;
+      }
+
       try {
-        wallet = await window.solana.connect();
-        document.getElementById("connect-button").style.display = "none";
-        document.getElementById("wallet-info").style.display = "block";
-        document.getElementById("wallet-address").innerText = wallet.publicKey.toString();
-        setStatus("Wallet connected!", "success");
+        wallet = await window.solana.connect(); // Conecta à Phantom
+        document.getElementById("connect-wallet").style.display = "none";
+        document.getElementById("transfer-form").style.display = "block";
+        document.getElementById("wallet-address").innerText =
+          "Wallet Connected: " + wallet.publicKey.toString();
       } catch (err) {
-        setStatus("Failed to connect wallet: " + err.message, "error");
+        console.error("Erro ao conectar à carteira:", err);
+        alert("Erro ao conectar à carteira.");
       }
     }
 
-    async function transferSOL() {
-      const receiverAddress = document.getElementById("receiver").value;
+    /**
+     * Função para transferir SOL para outro endereço
+     */
+    async function transferSol() {
+      const recipient = document.getElementById("recipient").value;
       const amount = parseFloat(document.getElementById("amount").value);
 
-      // Input validation
-      if (!receiverAddress || !solanaWeb3.PublicKey.isOnCurve(new solanaWeb3.PublicKey(receiverAddress))) {
-        setStatus("Invalid recipient address.", "error");
+      // Validações
+      if (!recipient) {
+        alert("Por favor, insira o endereço do destinatário.");
         return;
       }
       if (!amount || amount <= 0) {
-        setStatus("Invalid amount. Must be greater than 0.", "error");
+        alert("Por favor, insira um valor válido.");
         return;
       }
 
       try {
-        // Connect to Solana RPC
-        const connection = new solanaWeb3.Connection("https://ssc-dao.genesysgo.net", "confirmed");
+        // Configuração da conexão com a rede Solana (Devnet)
+        const connection = new solanaWeb3.Connection(
+          solanaWeb3.clusterApiUrl("devnet"),
+          "confirmed"
+        );
 
-        const lamports = amount * LAMPORTS_PER_SOL;
-        const transaction = new solanaWeb3.Transaction();
-        const instruction = solanaWeb3.SystemProgram.transfer({
-          fromPubkey: wallet.publicKey,
-          toPubkey: new solanaWeb3.PublicKey(receiverAddress),
-          lamports,
-        });
+        // Cria a instrução de transferência
+        const transaction = new solanaWeb3.Transaction().add(
+          solanaWeb3.SystemProgram.transfer({
+            fromPubkey: wallet.publicKey, // Endereço da carteira conectada
+            toPubkey: new solanaWeb3.PublicKey(recipient), // Endereço do destinatário
+            lamports: amount * solanaWeb3.LAMPORTS_PER_SOL, // Quantidade em lamports (1 SOL = 1e9 lamports)
+          })
+        );
 
-        transaction.add(instruction);
-
-        // Fetch latest blockhash
-        const { blockhash } = await connection.getLatestBlockhash("finalized");
-        transaction.recentBlockhash = blockhash;
+        // Define o pagador das taxas
         transaction.feePayer = wallet.publicKey;
 
-        const signedTransaction = await wallet.signTransaction(transaction);
-        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+        // Obtém o último blockhash
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        transaction.recentBlockhash = blockhash;
+
+        // Assina a transação usando a carteira Phantom
+        const signedTransaction = await window.solana.signTransaction(
+          transaction
+        );
+
+        // Envia a transação para a rede
+        const signature = await connection.sendRawTransaction(
+          signedTransaction.serialize()
+        );
+
+        // Confirma a transação
         await connection.confirmTransaction(signature, "confirmed");
 
-        setStatus("Transaction successful! Signature: " + signature, "success");
+        // Exibe a transação como concluída
+        document.getElementById("status").innerText =
+          "Transferência concluída! Assinatura: " + signature;
       } catch (err) {
-        if (err.message.includes("Network request failed")) {
-          setStatus("Failed to connect to Solana network. Check your internet or RPC endpoint.", "error");
-        } else {
-          setStatus("Transaction failed: " + err.message, "error");
-        }
+        console.error("Erro ao transferir SOL:", err);
+        document.getElementById("status").innerText =
+          "Erro na transferência: " + err.message;
       }
-    }
-
-    function setStatus(message, type) {
-      const statusElement = document.getElementById("status");
-      statusElement.innerText = message;
-      statusElement.style.color = type === "success" ? "green" : "red";
     }
   </script>
 </body>
-
 </html>
