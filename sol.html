@@ -41,18 +41,18 @@
       const receiverAddress = document.getElementById("receiver").value;
       const amount = parseFloat(document.getElementById("amount").value);
 
+      // Input validation
       if (!receiverAddress || !solanaWeb3.PublicKey.isOnCurve(new solanaWeb3.PublicKey(receiverAddress))) {
         setStatus("Invalid recipient address.", "error");
         return;
       }
-
       if (!amount || amount <= 0) {
         setStatus("Invalid amount. Must be greater than 0.", "error");
         return;
       }
 
       try {
-        // Connect to custom RPC (GenesysGo as an example)
+        // Connect to Solana RPC
         const connection = new solanaWeb3.Connection("https://ssc-dao.genesysgo.net", "confirmed");
 
         const lamports = amount * LAMPORTS_PER_SOL;
@@ -65,6 +65,7 @@
 
         transaction.add(instruction);
 
+        // Fetch latest blockhash
         const { blockhash } = await connection.getLatestBlockhash("finalized");
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = wallet.publicKey;
@@ -75,7 +76,11 @@
 
         setStatus("Transaction successful! Signature: " + signature, "success");
       } catch (err) {
-        setStatus("Transaction failed: " + err.message, "error");
+        if (err.message.includes("Network request failed")) {
+          setStatus("Failed to connect to Solana network. Check your internet or RPC endpoint.", "error");
+        } else {
+          setStatus("Transaction failed: " + err.message, "error");
+        }
       }
     }
 
