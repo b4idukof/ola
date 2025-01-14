@@ -6,119 +6,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Solana Transfer</title>
   <script src="https://unpkg.com/@solana/web3.js@1.33.0/lib/index.iife.js"></script>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #f9f9f9;
-    }
-
-    .container {
-      text-align: center;
-      padding: 20px;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-      background: #fff;
-      box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .container input,
-    .container button {
-      margin: 10px 0;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      font-size: 16px;
-    }
-
-    .container button {
-      background-color: #6366f1;
-      color: white;
-      cursor: pointer;
-    }
-
-    .container button:hover {
-      background-color: #4f46e5;
-    }
-
-    .status {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #333;
-    }
-
-    .status.error {
-      color: red;
-    }
-
-    .status.success {
-      color: green;
-    }
-  </style>
 </head>
 
 <body>
-  <div class="container">
-    <h1>Transfer Solana (SOL)</h1>
+  <div>
+    <h1>Transfer SOL</h1>
     <button id="connect-button" onclick="connectWallet()">Connect Wallet</button>
-    <div id="wallet-info" style="display: none;">
-      <p><strong>Wallet Connected:</strong> <span id="wallet-address"></span></p>
-      <input type="text" id="receiver-address" placeholder="Recipient Address" />
-      <input type="number" id="amount" placeholder="Amount (SOL)" />
+    <div id="wallet-info" style="display:none;">
+      <p><strong>Wallet:</strong> <span id="wallet-address"></span></p>
+      <input id="receiver" type="text" placeholder="Recipient Address" />
+      <input id="amount" type="number" placeholder="Amount (SOL)" />
       <button onclick="transferSOL()">Send SOL</button>
     </div>
-    <p id="status" class="status"></p>
+    <p id="status"></p>
   </div>
 
   <script>
-    // Global variables
-    let wallet = null; // Holds wallet instance
+    let wallet = null;
     const LAMPORTS_PER_SOL = solanaWeb3.LAMPORTS_PER_SOL;
 
-    /**
-     * Connect wallet function
-     */
     async function connectWallet() {
       try {
-        // Connect wallet
         wallet = await window.solana.connect();
         document.getElementById("connect-button").style.display = "none";
         document.getElementById("wallet-info").style.display = "block";
         document.getElementById("wallet-address").innerText = wallet.publicKey.toString();
-        updateStatus("Wallet connected successfully.", "success");
-      } catch (error) {
-        updateStatus("Failed to connect wallet: " + error.message, "error");
+        setStatus("Wallet connected!", "success");
+      } catch (err) {
+        setStatus("Failed to connect wallet: " + err.message, "error");
       }
     }
 
-    /**
-     * Transfer SOL to the recipient
-     */
     async function transferSOL() {
-      const receiverAddress = document.getElementById("receiver-address").value;
+      const receiverAddress = document.getElementById("receiver").value;
       const amount = parseFloat(document.getElementById("amount").value);
 
-      // Input validation
       if (!receiverAddress || !solanaWeb3.PublicKey.isOnCurve(new solanaWeb3.PublicKey(receiverAddress))) {
-        updateStatus("Invalid recipient address.", "error");
+        setStatus("Invalid recipient address.", "error");
         return;
       }
+
       if (!amount || amount <= 0) {
-        updateStatus("Invalid amount. Please enter a valid number greater than 0.", "error");
+        setStatus("Invalid amount. Must be greater than 0.", "error");
         return;
       }
 
       try {
-        // Connect to Solana Mainnet
-        const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", "confirmed");
+        // Connect to custom RPC (GenesysGo as an example)
+        const connection = new solanaWeb3.Connection("https://ssc-dao.genesysgo.net", "confirmed");
 
-        // Prepare transaction
-        const lamports = amount * LAMPORTS_PER_SOL; // Convert SOL to lamports
+        const lamports = amount * LAMPORTS_PER_SOL;
         const transaction = new solanaWeb3.Transaction();
         const instruction = solanaWeb3.SystemProgram.transfer({
           fromPubkey: wallet.publicKey,
@@ -128,31 +65,24 @@
 
         transaction.add(instruction);
 
-        // Fetch latest blockhash
-        const { blockhash } = await connection.getLatestBlockhash();
+        const { blockhash } = await connection.getLatestBlockhash("finalized");
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = wallet.publicKey;
 
-        // Sign transaction
         const signedTransaction = await wallet.signTransaction(transaction);
-
-        // Send transaction
         const signature = await connection.sendRawTransaction(signedTransaction.serialize());
         await connection.confirmTransaction(signature, "confirmed");
 
-        updateStatus(`Transaction successful! Signature: ${signature}`, "success");
-      } catch (error) {
-        updateStatus("Transaction failed: " + error.message, "error");
+        setStatus("Transaction successful! Signature: " + signature, "success");
+      } catch (err) {
+        setStatus("Transaction failed: " + err.message, "error");
       }
     }
 
-    /**
-     * Update status message
-     */
-    function updateStatus(message, type) {
+    function setStatus(message, type) {
       const statusElement = document.getElementById("status");
       statusElement.innerText = message;
-      statusElement.className = `status ${type}`;
+      statusElement.style.color = type === "success" ? "green" : "red";
     }
   </script>
 </body>
