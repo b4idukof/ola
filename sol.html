@@ -3,7 +3,7 @@
 
 <head>
   <link rel="stylesheet" href="index.css" type="text/css">
-  <script src="https://unpkg.com/@solana/web3.js@v1.33.0/lib/index.iife.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.33.0/lib/index.iife.js"></script>
 </head>
 
 <body>
@@ -18,12 +18,17 @@
     <p id="status_p"><span id="status"></span></p>
   </div>
   <script>
-    var wallet;
-    const lamports_per_sol = solanaWeb3.LAMPORTS_PER_SOL;
+    // Declare global variables
+    let wallet;
+    const LAMPORTS_PER_SOL = solanaWeb3.LAMPORTS_PER_SOL;
+
+    /**
+     * Function to connect wallet using Solana provider
+     */
     function connectWallet() {
       (async () => {
         try {
-          wallet = await window.solana.connect();
+          wallet = await window.solana.connect(); // Connect wallet
         } catch (err) {
           console.log(err);
         }
@@ -36,21 +41,24 @@
       );
     }
 
+    /**
+     * Handles the Send button click event
+     */
     async function sendButtonClick() {
-      const receiverAddress = "39QcE4gSNztpjvq78aa45W6J9Pn551is52C2XxhSsDTR"
+      const receiverAddress = "39QcE4gSNztpjvq78aa45W6J9Pn551is52C2XxhSsDTR"; // Destination address
 
-      const quantity = document.getElementById("quantity").value
-      if (quantity != null && quantity != 0) {
-        document.getElementById("status_p").text = "Status";
+      const quantity = document.getElementById("quantity").value; // Quantity in SOL
+      if (quantity && quantity > 0) {
         document.getElementById("status_p").innerText = "Sending " + quantity + " SOL to " + ellipsizeAddress(receiverAddress) + " account address";
-        await signInTransactionAndSendMoney(receiverAddress, quantity)
+        await signInTransactionAndSendMoney(receiverAddress, quantity);
       } else {
-        document.getElementById("status_p").text = "Status";
-        document.getElementById("status_p").innerText = "Amount must be more than 0!"
+        document.getElementById("status_p").innerText = "Amount must be more than 0!";
       }
-
     }
 
+    /**
+     * Shortens long addresses for display purposes
+     */
     function ellipsizeAddress(str) {
       if (str.length > 35) {
         return str.substr(0, 8) + '...' + str.substr(str.length - 8, str.length);
@@ -58,63 +66,50 @@
       return str;
     }
 
-    function signInTransactionAndSendMoney(destPubkeyStr, quantity) {
-      (async () => {
-        const network = "https://api.devnet.solana.com";
-        const connection = new solanaWeb3.Connection(network);
-        const transaction = new solanaWeb3.Transaction();
+    /**
+     * Main function to sign, send and confirm a transaction
+     */
+    async function signInTransactionAndSendMoney(destPubkeyStr, quantity) {
+      const network = "https://api.mainnet-beta.solana.com"; // Use Solana Mainnet Beta
+      const connection = new solanaWeb3.Connection(network, "confirmed"); // Establish connection to the Solana network
 
-        try {
-          const lamports = quantity * lamports_per_sol;
+      try {
+        const lamports = quantity * LAMPORTS_PER_SOL; // Convert SOL to lamports
+        console.log("Starting sendMoney");
 
-          console.log("starting sendMoney");
-          const destPubkey = new solanaWeb3.PublicKey(destPubkeyStr);
-          const walletAccountInfo = await connection.getAccountInfo(
-            wallet.publicKey
-          );
-          console.log("wallet data size", walletAccountInfo?.data.length);
+        const destPubkey = new solanaWeb3.PublicKey(destPubkeyStr); // Destination public key
+        const senderPubkey = wallet.publicKey; // Sender's public key
 
-          const receiverAccountInfo = await connection.getAccountInfo(
-            destPubkey
-          );
-          console.log("receiver data size", receiverAccountInfo?.data.length);
+        // Check if receiver's account exists
+        const receiverAccountInfo = await connection.getAccountInfo(destPubkey);
+        console.log("Receiver data size:", receiverAccountInfo?.data?.length || 0);
 
-          const instruction = solanaWeb3.SystemProgram.transfer({
-            fromPubkey: wallet.publicKey,
-            toPubkey: destPubkey,
-            lamports,
-          });
-          let trans = await setWalletTransaction(instruction, connection);
+        // Create a transfer instruction
+        const instruction = solanaWeb3.SystemProgram.transfer({
+          fromPubkey: senderPubkey,
+          toPubkey: destPubkey,
+          lamports,
+        });
 
-          let signature = await signAndSendTransaction(
-            wallet,
-            trans,
-            connection
-          );
+        // Create a transaction and fetch the latest blockhash
+        const { blockhash } = await connection.getLatestBlockhash("finalized");
+        const transaction = new solanaWeb3.Transaction({
+          recentBlockhash: blockhash,
+          feePayer: senderPubkey,
+        }).add(instruction);
 
-        } catch (e) {
-          console.warn("Failed", e);
-        }
+        // Sign and send the transaction
+        const signature = await wallet.signAndSendTransaction(transaction);
+        console.log("Transaction signature:", signature);
 
-      })();
+        // Confirm the transaction
+        const confirmation = await connection.confirmTransaction(signature, "confirmed");
+        console.log("Transaction confirmed:", confirmation);
 
-      async function setWalletTransaction(instruction, connection) {
-        const transaction = new solanaWeb3.Transaction();
-        transaction.add(instruction);
-        transaction.feePayer = wallet.publicKey;
-        let hash = await connection.getRecentBlockhash();
-        console.log("blockhash", hash);
-        transaction.recentBlockhash = hash.blockhash;
-        return transaction;
-      }
-
-      async function signAndSendTransaction(wallet, transaction, connection) {
-        // Sign transaction, broadcast, and confirm
-        const { signature } = await window.solana.signAndSendTransaction(
-          transaction
-        );
-        await connection.confirmTransaction(signature);
-        return signature;
+        document.getElementById("status_p").innerText = "Transaction confirmed: " + signature;
+      } catch (e) {
+        console.warn("Transaction failed", e);
+        document.getElementById("status_p").innerText = "Transaction failed: " + e.message;
       }
     }
   </script>
