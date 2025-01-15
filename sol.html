@@ -49,7 +49,7 @@
     let wallet = null; // Armazena a carteira conectada
 
     /**
-     * Função para conectar à carteira Solana (Phantom)
+     * Conecta à Phantom Wallet
      */
     async function connectWallet() {
       if (!window.solana) {
@@ -58,7 +58,7 @@
       }
 
       try {
-        wallet = await window.solana.connect(); // Conecta à Phantom
+        wallet = await window.solana.connect(); // Conecta à Phantom Wallet
         document.getElementById("connect-wallet").style.display = "none";
         document.getElementById("transfer-form").style.display = "block";
         document.getElementById("wallet-address").innerText =
@@ -70,10 +70,10 @@
     }
 
     /**
-     * Função para transferir SOL para outro endereço
+     * Transfere SOL para outro endereço
      */
     async function transferSol() {
-      const recipient = document.getElementById("recipient").value;
+      const recipient = document.getElementById("recipient").value.trim();
       const amount = parseFloat(document.getElementById("amount").value);
 
       // Validações
@@ -86,43 +86,42 @@
         return;
       }
 
+      // Valida o endereço do destinatário
       try {
-        // Configuração da conexão com a rede Solana (Devnet)
+        new solanaWeb3.PublicKey(recipient); // Verifica se o endereço é válido
+      } catch (err) {
+        alert("Endereço do destinatário inválido.");
+        return;
+      }
+
+      try {
+        // Configuração da conexão com a Mainnet-beta
         const connection = new solanaWeb3.Connection(
-          solanaWeb3.clusterApiUrl("devnet"),
+          "https://white-wispy-arrow.solana-mainnet.quiknode.pro/8880137d7527fc9f2f6bc85c29c5175a4cce50da",
           "confirmed"
         );
 
         // Cria a instrução de transferência
         const transaction = new solanaWeb3.Transaction().add(
           solanaWeb3.SystemProgram.transfer({
-            fromPubkey: wallet.publicKey, // Endereço da carteira conectada
-            toPubkey: new solanaWeb3.PublicKey(recipient), // Endereço do destinatário
-            lamports: amount * solanaWeb3.LAMPORTS_PER_SOL, // Quantidade em lamports (1 SOL = 1e9 lamports)
+            fromPubkey: wallet.publicKey,
+            toPubkey: new solanaWeb3.PublicKey(recipient),
+            lamports: amount * solanaWeb3.LAMPORTS_PER_SOL,
           })
         );
 
-        // Define o pagador das taxas
+        // Define o pagador das taxas e o blockhash
         transaction.feePayer = wallet.publicKey;
-
-        // Obtém o último blockhash
         const { blockhash } = await connection.getLatestBlockhash("confirmed");
         transaction.recentBlockhash = blockhash;
 
-        // Assina a transação usando a carteira Phantom
-        const signedTransaction = await window.solana.signTransaction(
-          transaction
-        );
-
-        // Envia a transação para a rede
-        const signature = await connection.sendRawTransaction(
-          signedTransaction.serialize()
-        );
+        // Assina e envia a transação
+        const signedTransaction = await window.solana.signTransaction(transaction);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize());
 
         // Confirma a transação
         await connection.confirmTransaction(signature, "confirmed");
 
-        // Exibe a transação como concluída
         document.getElementById("status").innerText =
           "Transferência concluída! Assinatura: " + signature;
       } catch (err) {
